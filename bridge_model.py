@@ -363,6 +363,9 @@ class OsdagBridgeModeler:
         print("[2/4] Building Substructures at designated locations...")
         for loc in PIER_LOCATIONS:
             self.build_piers_and_pilecaps(x_pos=loc)
+            
+        # Trigger report and visualization
+        self.generate_report()
 
     def generate_report(self):
         """Prints the final engineering QTO report."""
@@ -436,20 +439,18 @@ class OsdagBridgeModeler:
         
         # Auto-snapshot
         print(f"  Saving auto-snapshot to 'bridge_snapshot.png'...")
-        display.View_Isometric()
-        display.fit_all()
+        display.View_Iso()
+        display.FitAll()
         display.ExportToImage("bridge_snapshot.png")
         print("  Snapshot saved successfully.")
 
         # Initial camera view
-        display.View_Isometric()
-        display.fit_all()
-        display.View.SetBgGradientStyle(1) # Subtle background gradient
-        
-        display.StartMessageLoop()
-
+        display.View_Iso()
         display.FitAll()
-        print("\nVisualization ready. Close the window to exit.")
+        # Set background gradient using the built-in helper
+        display.set_bg_gradient_color([206, 215, 222], [128, 128, 128])
+        
+        print("\nVisualization ready. Use your mouse to rotate and zoom.")
         start_display()
 
 if __name__ == "__main__":
