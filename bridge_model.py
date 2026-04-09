@@ -460,7 +460,7 @@ class OsdagBridgeModeler:
         # Force a rendering update before snap for Mac compatibility
         display.View_Iso()
         display.FitAll()
-        display.export_to_image("bridge_snapshot.png")
+        display.ExportToImage("bridge_snapshot.png")
         print("  Snapshot saved successfully.")
 
         # Initial camera view
