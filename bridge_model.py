@@ -1,8 +1,7 @@
 """
-Osdag Bridge Project - Main Parametric Modeler
-==============================================
-This script assembles a parametric 3D CAD model of a short-span steel girder bridge.
-Project: FOSSEE Summer Fellowship 2026 Screening Task
+Bridge assembly script - FOSSEE Screening 2026.
+Main logic for parametric girder bridge.
+
 Coordinate System:
     X -> Longitudinal (along span)
     Y -> Transverse (across deck width)
@@ -137,27 +136,24 @@ class OsdagBridgeModeler:
             self.components[f"Girder_{i+1}"] = placed_girder
 
     def build_deck(self):
-        """Constructs the concrete deck slab, segmented by DECK_SLAB_SEGMENT_LENGTH."""
-        # Note: Origin (0,0,0) is at Center-Span, Deck Top.
-        # Total span length available for deck:
+        """Building deck segments as per span logic."""
         full_l = SPAN_LENGTH_L
         n_segments = int(full_l / DECK_SLAB_SEGMENT_LENGTH)
         if n_segments < 1: n_segments = 1
         seg_l = full_l / n_segments
         
         for i in range(n_segments):
-            # Create segment
-            # create_rectangular_prism(width, height, length)
+            # Segment box
             segment = Factory.create_rectangular_prism(DECK_WIDTH, DECK_THICKNESS, seg_l)
             trsf = gp_Trsf()
-            # Position segments longitudinally
+            # Longitudinal placement
             x_start = -SPAN_LENGTH_L/2.0 + i * seg_l
             trsf.SetTranslation(gp_Vec(x_start, -DECK_WIDTH/2.0, -DECK_THICKNESS))
             placed_seg = BRepBuilderAPI_Transform(segment, trsf, True).Shape()
             self.builder.Add(self.assembly, placed_seg)
             self.components[f"Deck_Segment_{i}"] = placed_seg
 
-        # 3. Reinforcement (Grid inside Deck)
+        # Rebar grid
         if REBAR_VISIBLE:
             deck_rebar = RebarFactory.create_rebar_grid_for_deck(
                 DECK_WIDTH, SPAN_LENGTH_L, REBAR_COVER, REBAR_MAIN_DIAMETER, REBAR_SPACING_LONGITUDINAL, DECK_THICKNESS
@@ -205,7 +201,7 @@ class OsdagBridgeModeler:
         self.components["Valley_Terrain"] = placed_t
 
     def build_parapets(self):
-        """Adds creative parapets/railings to the deck edges."""
+        """Deck railings."""
         if not PARAPET_VISIBLE: return
         p_height = 800.0
         p_width = 150.0
@@ -219,14 +215,12 @@ class OsdagBridgeModeler:
             self.components[f"Parapet_{y_side}"] = placed_p
 
     def build_abutments(self):
-        """Creates and positions concrete abutments at both span ends."""
-        # Note: Center top of deck is (0,0,0). 
-        # Abutments sit at +/- L/2
+        """Substructure foundations at span ends."""
         for side in [-1, 1]:
             abutment = Factory.create_abutment(DECK_WIDTH, ABUTMENT_HEIGHT, ABUTMENT_DEPTH, WING_LENGTH, WING_ANGLE)
             trsf = gp_Trsf()
             
-            # Position it right under the deck/girders at the end
+            # Positioned under the main span ends
             x_pos = (SPAN_LENGTH_L/2.0) if side > 0 else (-SPAN_LENGTH_L/2.0 - ABUTMENT_DEPTH)
             z_pos = -DECK_THICKNESS - GIRDER_SECTION_D - ABUTMENT_HEIGHT
             
@@ -236,11 +230,10 @@ class OsdagBridgeModeler:
             self.components[f"Abutment_{side}"] = placed_a
 
     def build_bearings(self):
-        """Places elastomeric bearing pads under the steel girders."""
-        # Bearings sit between Girder Bottom and Substucture Top
+        """Support pads between girder and pier/abutment."""
         z_pos = -DECK_THICKNESS - GIRDER_SECTION_D
         
-        # 1. Bearings at Pier(s)
+        # At Pier
         for p_loc in PIER_LOCATIONS:
             for g_idx in range(N_GIRDERS):
                 y_pos = -((N_GIRDERS-1)*GIRDER_CENTROID_SPACING)/2.0 + g_idx*GIRDER_CENTROID_SPACING

@@ -1,7 +1,5 @@
 """
-Osdag Bridge Project - Reinforcement Utilities
-Handles the generation of reinforcement bars (rebars).
-Includes standard grid layouts and circular arrangements for columns/piers.
+Rebar factory for deck and piers.
 """
 
 from OCC.Core.gp import gp_Pnt, gp_Vec, gp_Trsf, gp_Ax2, gp_Dir

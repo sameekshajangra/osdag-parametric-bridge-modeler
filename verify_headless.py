@@ -1,7 +1,6 @@
 """
-verify_headless.py
-Verification script for headless environments.
-Generates the bridge model, prints the BOM, and exports to STEP.
+Verification script for headless runs.
+Prints BOM and exports STEP.
 """
 import sys
 # Fake the display module to prevent import errors in headless mode

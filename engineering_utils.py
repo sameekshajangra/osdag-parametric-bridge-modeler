@@ -1,6 +1,5 @@
 """
-Osdag Bridge Project - Engineering Utilities
-Provides tools for Quantity Take-Off (BOM) and CAD export.
+BOM and STEP export helper.
 """
 
 from OCC.Core.GProp import GProp_GProps
