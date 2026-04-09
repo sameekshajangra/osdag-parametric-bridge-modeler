@@ -432,18 +432,18 @@ class OsdagBridgeModeler:
             display.DisplayShape(shape, color=col, transparency=1.0-alpha)
 
         if SHOW_AXES:
-            display.DisplayTriedron()
+            display.display_triedron()
         
-        # Auto-snapshot (Creative backup/WOW feature)
+        # Auto-snapshot
         print(f"  Saving auto-snapshot to 'bridge_snapshot.png'...")
         display.View_Isometric()
-        display.FitAll()
+        display.fit_all()
         display.ExportToImage("bridge_snapshot.png")
         print("  Snapshot saved successfully.")
 
-        # Initial camera view: Isometric and Fit All
+        # Initial camera view
         display.View_Isometric()
-        display.FitAll()
+        display.fit_all()
         display.View.SetBgGradientStyle(1) # Subtle background gradient
         
         display.StartMessageLoop()
