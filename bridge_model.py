@@ -163,7 +163,8 @@ class OsdagBridgeModeler:
                 DECK_WIDTH, SPAN_LENGTH_L, REBAR_COVER, REBAR_MAIN_DIAMETER, REBAR_SPACING_LONGITUDINAL, DECK_THICKNESS
             )
             trsf_rebar = gp_Trsf()
-            trsf_rebar.SetTranslation(gp_Vec(-SPAN_LENGTH_L/2.0, -DECK_WIDTH/2.0, -DECK_THICKNESS))
+            # Rebar factory already centers it in X and Y, only translate in Z
+            trsf_rebar.SetTranslation(gp_Vec(0, 0, -DECK_THICKNESS))
             placed_rebar = BRepBuilderAPI_Transform(deck_rebar, trsf_rebar, True).Shape()
             self.builder.Add(self.assembly, placed_rebar)
             self.components["Deck_Rebars"] = placed_rebar
@@ -182,6 +183,7 @@ class OsdagBridgeModeler:
             
             stripe = Factory.create_rectangular_prism(SPAN_LENGTH_L, stripe_width, stripe_depth)
             trsf = gp_Trsf()
+            # Center of SPAN is origin. Lanes go from -L/2 to +L/2
             trsf.SetTranslation(gp_Vec(-SPAN_LENGTH_L/2.0, y_pos - stripe_width/2.0, 0))
             placed_stripe = BRepBuilderAPI_Transform(stripe, trsf, True).Shape()
             self.builder.Add(self.assembly, placed_stripe)
@@ -197,7 +199,7 @@ class OsdagBridgeModeler:
         # Simple V-wedge using a fused prism or slanted Box
         terrain = Factory.create_rectangular_prism(t_width, t_depth, t_length)
         trsf = gp_Trsf()
-        # Position below the pier cap level
+        # Position centered under the bridge span
         z_pos = -DECK_THICKNESS - GIRDER_SECTION_D - PIER_HEIGHT - PIER_CAP_DEPTH - t_depth/1.5
         trsf.SetTranslation(gp_Vec(-t_length/2.0, -t_width/2.0, z_pos))
         placed_t = BRepBuilderAPI_Transform(terrain, trsf, True).Shape()
@@ -224,11 +226,11 @@ class OsdagBridgeModeler:
             abutment = Factory.create_abutment(DECK_WIDTH, ABUTMENT_HEIGHT, ABUTMENT_DEPTH, WING_LENGTH, WING_ANGLE)
             trsf = gp_Trsf()
             
-            # Positioned under the main span ends
+            # Positioned under the main span ends. Center in Y.
             x_pos = (SPAN_LENGTH_L/2.0) if side > 0 else (-SPAN_LENGTH_L/2.0 - ABUTMENT_DEPTH)
             z_pos = -DECK_THICKNESS - GIRDER_SECTION_D - ABUTMENT_HEIGHT
             
-            trsf.SetTranslation(gp_Vec(x_pos, -DECK_WIDTH/2.0, z_pos))
+            trsf.SetTranslation(gp_Vec(x_pos, 0, z_pos))
             placed_a = BRepBuilderAPI_Transform(abutment, trsf, True).Shape()
             self.builder.Add(self.assembly, placed_a)
             self.components[f"Abutment_{side}"] = placed_a
@@ -345,29 +347,34 @@ class OsdagBridgeModeler:
                 self.builder.Add(self.assembly, placed_pile)
                 self.components[f"Pile_{x_pos}_{dx}_{dy}"] = placed_pile
 
-    def assemble_bridge(self):
-        """Orchestrates the assembly, verification, and output."""
-        print("Starting assembly of Osdag Bridge Model...")
+    def assemble_bridge(self, visualize=True):
+        """Orchestrates the creation and positioning of all components."""
+        print(f"Starting assembly of Osdag Bridge Model...")
         print(f"Origin (0,0,0) set at Center of Span, Deck Top Level.")
-
+        
         print("[1/4] Building Superstructure...")
-        self.build_girders()
         self.build_deck()
+        self.build_girders()
         self.build_crossframes()
-        self.build_parapets()
         self.build_lanes()
-        self.build_bearings()
-        self.build_abutments()
-        self.build_terrain()
-
+        self.build_parapets()
+        
         print("[2/4] Building Substructures at designated locations...")
         for loc in PIER_LOCATIONS:
             self.build_piers_and_pilecaps(x_pos=loc)
             
-        # Trigger report and visualization
-        self.generate_report()
+        self.build_abutments()
+        self.build_bearings()
+        self.build_terrain()
+        
+        # 3. Report & Export
+        self.generate_bom()
+        self.export_cad()
+        
+        if visualize:
+            self.generate_report()
 
-    def generate_report(self):
+    def generate_bom(self):
         """Prints the final engineering QTO report."""
         print("\n" + "="*55)
         print("  BRIDGE QUANTITY TAKE-OFF (BOM) REPORT")
@@ -379,7 +386,9 @@ class OsdagBridgeModeler:
         print(report)
         print("="*55 + "\n")
 
-        print("[4/4] Exporting and visualizing...")
+    def export_cad(self):
+        """Saves the 3D model to external files."""
+        print("[3/4] Exporting CAD files...")
         if SAVE_STEP:
             status = EngineeringUtils.export_to_step(self.assembly, STEP_FILENAME)
             print(f"  STEP Export -> '{STEP_FILENAME}': {'OK' if status == 1 else 'FAILED'}")
@@ -390,18 +399,27 @@ class OsdagBridgeModeler:
             breptools.Write(self.assembly, BREP_FILENAME)
             print(f"  BREP Export -> '{BREP_FILENAME}': OK")
 
+    def generate_report(self):
+        """Visualizes the bridge assembly in the 3D environment."""
+        print("[4/4] Visualizing model...")
+
         # --- Visualization ---
         try:
             print("  Initializing 3D Visualizer (backend='pyside2')...")
             display, start_display, add_menu, add_function_to_menu = init_display(backend='pyside2')
         except Exception as e:
             print(f"  Warning: GUI Backend initialization failed ({e}). Attempting default...")
-            display, start_display, add_menu, add_function_to_menu = init_display()
+            try:
+                display, start_display, add_menu, add_function_to_menu = init_display()
+            except:
+                print("  ERROR: No GUI backend available. Skipping visualization.")
+                return
 
         # Define component display styles
-        from OCC.Core.Quantity import Quantity_Color, Quantity_NOC_BISQUE, Quantity_NOC_STEELBLUE, \
-                                    Quantity_NOC_ORANGERED, Quantity_NOC_GOLDENROD, Quantity_NOC_DARKGREEN, \
-                                    Quantity_NOC_WHITE, Quantity_NOC_GRAY, Quantity_NOC_BLACK
+        from OCC.Core.Quantity import Quantity_NOC_BISQUE, Quantity_NOC_STEELBLUE, \
+                                    Quantity_NOC_ORANGERED, Quantity_NOC_GOLDENROD, \
+                                    Quantity_NOC_DARKGREEN, Quantity_NOC_WHITE, \
+                                    Quantity_NOC_GRAY, Quantity_NOC_BLACK
         
         color_map = {
             "Girder": Quantity_NOC_STEELBLUE,
@@ -439,9 +457,10 @@ class OsdagBridgeModeler:
         
         # Auto-snapshot
         print(f"  Saving auto-snapshot to 'bridge_snapshot.png'...")
+        # Force a rendering update before snap for Mac compatibility
         display.View_Iso()
         display.FitAll()
-        display.ExportToImage("bridge_snapshot.png")
+        display.export_to_image("bridge_snapshot.png")
         print("  Snapshot saved successfully.")
 
         # Initial camera view
@@ -452,7 +471,8 @@ class OsdagBridgeModeler:
         
         print("\nVisualization ready. Use your mouse to rotate and zoom.")
         start_display()
+        start_display()
 
 if __name__ == "__main__":
     modeler = OsdagBridgeModeler()
-    modeler.assemble_bridge()
+    modeler.assemble_bridge(visualize=True)

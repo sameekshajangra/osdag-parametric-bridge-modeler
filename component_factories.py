@@ -86,13 +86,16 @@ class BridgeComponentFactory:
 
     @staticmethod
     def create_abutment(width, height, depth, wing_length, wing_angle=45):
-        """Bridge abutment with sloped wings."""
+        """Bridge abutment with sloped wings. Centered on Y=0."""
         builder = BRep_Builder()
         compound = TopoDS_Compound()
         builder.MakeCompound(compound)
         
-        # Breast wall
+        # Breast wall (Centered in Y)
         stem = BRepPrimAPI_MakeBox(depth, width, height).Shape()
+        trsf_stem = gp_Trsf()
+        trsf_stem.SetTranslation(gp_Vec(0, -width/2.0, 0))
+        stem = BRepBuilderAPI_Transform(stem, trsf_stem, True).Shape()
         builder.Add(compound, stem)
         
         # Sloped wing walls
