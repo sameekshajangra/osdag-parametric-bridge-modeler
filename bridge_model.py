@@ -2,6 +2,10 @@
 Bridge assembly script - FOSSEE Screening 2026.
 Main logic for parametric girder bridge.
 
+import os
+# Mac-specific fix for pythonocc-core Segfault
+os.environ['QT_MAC_WANTS_LAYER'] = '1'
+
 Coordinate System:
     X -> Longitudinal (along span)
     Y -> Transverse (across deck width)
@@ -384,7 +388,12 @@ class OsdagBridgeModeler:
             print(f"  BREP Export -> '{BREP_FILENAME}': OK")
 
         # --- Visualization ---
-        display, start_display, add_menu, add_function_to_menu = init_display()
+        try:
+            print("  Initializing 3D Visualizer (backend='pyside2')...")
+            display, start_display, add_menu, add_function_to_menu = init_display(backend='pyside2')
+        except Exception as e:
+            print(f"  Warning: GUI Backend initialization failed ({e}). Attempting default...")
+            display, start_display, add_menu, add_function_to_menu = init_display()
 
         # Define component display styles
         from OCC.Core.Quantity import Quantity_Color, Quantity_NOC_BISQUE, Quantity_NOC_STEELBLUE, \
@@ -424,6 +433,13 @@ class OsdagBridgeModeler:
 
         if SHOW_AXES:
             display.DisplayTriedron()
+        
+        # Auto-snapshot (Creative backup/WOW feature)
+        print(f"  Saving auto-snapshot to 'bridge_snapshot.png'...")
+        display.View_Isometric()
+        display.FitAll()
+        display.ExportToImage("bridge_snapshot.png")
+        print("  Snapshot saved successfully.")
 
         # Initial camera view: Isometric and Fit All
         display.View_Isometric()
