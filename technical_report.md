@@ -10,6 +10,7 @@ The project is built on a **Factory Pattern** architecture, separating concerns 
 ### 2.1 Superstructure (Girder, Deck & Cross-Frames)
 - **Steel Girders**: Modeled as standard I-sections. The geometry is created by fusing two flange blocks and one web block.
 - **Cross-Frames (Diaphragms)**: Added `build_crossframes()` to create intermediate structural supports between girders.
+- **Segmented Deck Slab**: The deck is refactored as a series of independent segments based on the `DECK_SLAB_SEGMENT_LENGTH` parameter, allowing for modular construction modeling.
 - **Deck Detailing**: Includes parametric **Lane Demarcations** and **Parapet Railings** for a complete, functional highway bridge visual.
 
 ### 2.2 Substructure (Piers & Foundations)
@@ -25,7 +26,8 @@ The project is built on a **Factory Pattern** architecture, separating concerns 
 ## 3. Engineering Utility & Standards
 The model applies real-world engineering logic:
 - **Quantity Take-Off (QTO)**: Uses `GProp_GProps` to calculate the exact volume of every component. Mass is estimated using standard densities (7850 kg/m³ for steel, 2400 kg/m³ for concrete).
-- **CAD Interoperability**: Integrated `STEPControl_Writer` ensures that the model can be exported to industrial CAD software (AutoCAD, MicroStation) for professional drafting.
+- **CAD Interoperability**: Integrated `STEPControl_Writer` ensures that the model can be exported to industrial CAD software.
+- **Material & Environmental Visualization**: Replaced generic colors with an **Industrial Engineering Palette** (SteelBlue, Bisque, OrangeRed) and added a **Valley Terrain** context to simulate real-world crossing environments.
 - **Materials Codes**: Geometry is designed with awareness of IS 456 (Concrete) and ISMB (Steel) section standards.
 
 ## 4. How to Use & Extend

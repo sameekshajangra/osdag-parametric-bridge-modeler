@@ -38,6 +38,8 @@ GIRDER_OFFSET_FROM_EDGE = 500.0      # Overhang distance
 DECK_WIDTH = 7000.0                  # Total width
 DECK_THICKNESS = 200.0               # Concrete slab depth
 DECK_OVERHANG = 500.0                # Overhang beyond outer girders
+DECK_SLAB_SEGMENT_LENGTH = 3000.0    # Longitudinal segment size
+EXPANSION_GAP = 25.0                 # Gap between deck and abutment
 N_LANES = 2                          # Optional demarcation
 LANE_WIDTH = 3500.0                  # Standard lane width
 
@@ -103,6 +105,13 @@ SAVE_BREP = True
 BREP_FILENAME = "bridge_model.brep"
 RENDER_SIZE = (1920, 1080)           # Screenshot resolution
 PARAPET_VISIBLE = True               # Creative addition
+TERRAIN_VISIBLE = True               # Contextual terrain
+TERRAIN_OPACITY = 0.5
+CONCRETE_COLOR = "BISQUE"
+STEEL_COLOR = "STEELBLUE"
+REBAR_COLOR = "ORANGERED"
+TERRAIN_COLOR = "DARKGREEN"
+FOUNDATION_COLOR = "GOLDENROD"
 
 # ==========================================
 # ASSEMBLY LOGIC
@@ -128,13 +137,25 @@ class OsdagBridgeModeler:
             self.components[f"Girder_{i+1}"] = placed_girder
 
     def build_deck(self):
-        """Constructs deck as prism(s) and rebar grid."""
-        deck = Factory.create_rectangular_prism(SPAN_LENGTH_L, DECK_WIDTH, DECK_THICKNESS)
-        trsf_deck = gp_Trsf()
-        trsf_deck.SetTranslation(gp_Vec(-SPAN_LENGTH_L/2.0, -DECK_WIDTH/2.0, -DECK_THICKNESS))
-        placed_deck = BRepBuilderAPI_Transform(deck, trsf_deck, True).Shape()
-        self.builder.Add(self.assembly, placed_deck)
-        self.components["Deck_Slab"] = placed_deck
+        """Constructs the concrete deck slab, segmented by DECK_SLAB_SEGMENT_LENGTH."""
+        # Note: Origin (0,0,0) is at Center-Span, Deck Top.
+        # Total span length available for deck:
+        full_l = SPAN_LENGTH_L
+        n_segments = int(full_l / DECK_SLAB_SEGMENT_LENGTH)
+        if n_segments < 1: n_segments = 1
+        seg_l = full_l / n_segments
+        
+        for i in range(n_segments):
+            # Create segment
+            # create_rectangular_prism(width, height, length)
+            segment = Factory.create_rectangular_prism(DECK_WIDTH, DECK_THICKNESS, seg_l)
+            trsf = gp_Trsf()
+            # Position segments longitudinally
+            x_start = -SPAN_LENGTH_L/2.0 + i * seg_l
+            trsf.SetTranslation(gp_Vec(x_start, -DECK_WIDTH/2.0, -DECK_THICKNESS))
+            placed_seg = BRepBuilderAPI_Transform(segment, trsf, True).Shape()
+            self.builder.Add(self.assembly, placed_seg)
+            self.components[f"Deck_Segment_{i}"] = placed_seg
 
         # 3. Reinforcement (Grid inside Deck)
         if REBAR_VISIBLE:
@@ -165,6 +186,23 @@ class OsdagBridgeModeler:
             placed_stripe = BRepBuilderAPI_Transform(stripe, trsf, True).Shape()
             self.builder.Add(self.assembly, placed_stripe)
             self.components[f"Lane_Marking_{i}"] = placed_stripe
+
+    def build_terrain(self):
+        """Adds a contextual 'Valley Terrain' wedge under the bridge."""
+        if not TERRAIN_VISIBLE: return
+        t_width = DECK_WIDTH * 4.0
+        t_length = SPAN_LENGTH_L * 1.5
+        t_depth = PIER_HEIGHT * 2.0
+        
+        # Simple V-wedge using a fused prism or slanted Box
+        terrain = Factory.create_rectangular_prism(t_width, t_depth, t_length)
+        trsf = gp_Trsf()
+        # Position below the pier cap level
+        z_pos = -DECK_THICKNESS - GIRDER_SECTION_D - PIER_HEIGHT - PIER_CAP_DEPTH - t_depth/1.5
+        trsf.SetTranslation(gp_Vec(-t_length/2.0, -t_width/2.0, z_pos))
+        placed_t = BRepBuilderAPI_Transform(terrain, trsf, True).Shape()
+        self.builder.Add(self.assembly, placed_t)
+        self.components["Valley_Terrain"] = placed_t
 
     def build_parapets(self):
         """Adds creative parapets/railings to the deck edges."""
@@ -323,6 +361,7 @@ class OsdagBridgeModeler:
         self.build_lanes()
         self.build_bearings()
         self.build_abutments()
+        self.build_terrain()
 
         print("[2/4] Building Substructures at designated locations...")
         for loc in PIER_LOCATIONS:
@@ -355,34 +394,40 @@ class OsdagBridgeModeler:
         display, start_display, add_menu, add_function_to_menu = init_display()
 
         # Define component display styles
+        from OCC.Core.Quantity import Quantity_Color, Quantity_NOC_BISQUE, Quantity_NOC_STEELBLUE, \
+                                    Quantity_NOC_ORANGERED, Quantity_NOC_GOLDENROD, Quantity_NOC_DARKGREEN, \
+                                    Quantity_NOC_WHITE, Quantity_NOC_GRAY, Quantity_NOC_BLACK
+        
+        color_map = {
+            "Girder": Quantity_NOC_STEELBLUE,
+            "Deck_Segment": Quantity_NOC_BISQUE,
+            "Rebar": Quantity_NOC_ORANGERED,
+            "Pier": Quantity_NOC_BISQUE,
+            "Cap": Quantity_NOC_BISQUE,
+            "Pile": Quantity_NOC_GOLDENROD,
+            "Abutment": Quantity_NOC_BISQUE,
+            "Bearing": Quantity_NOC_BLACK,
+            "Parapet": Quantity_NOC_BISQUE,
+            "Lane": Quantity_NOC_WHITE,
+            "Terrain": Quantity_NOC_DARKGREEN
+        }
+        
         for name, shape in self.components.items():
-            name_lower = name.lower()
-            color = Quantity_NOC_GRAY
-            transparency = 0.0
-
-            if "rebar" in name_lower:
-                color = Quantity_NOC_RED
-                transparency = 0.0
-            elif "girder" in name_lower:
-                color = Quantity_NOC_STEELBLUE
-                transparency = 0.0
-            elif "deck_slab" in name_lower:
-                color = Quantity_NOC_TAN
-                transparency = CONCRETE_OPACITY
-            elif "pier_cap" in name_lower:
-                color = Quantity_NOC_TAN
-                transparency = CONCRETE_OPACITY
-            elif "pier_" in name_lower:
-                color = Quantity_NOC_TAN
-                transparency = CONCRETE_OPACITY
-            elif "pile_cap" in name_lower:
-                color = Quantity_NOC_GOLD
-                transparency = CONCRETE_OPACITY
-            elif "pile_" in name_lower:
-                color = Quantity_NOC_GOLD
-                transparency = CONCRETE_OPACITY
-
-            display.DisplayShape(shape, color=color, transparency=transparency, update=False)
+            # Determine color by name keyword
+            col = Quantity_NOC_GRAY
+            for key, val in color_map.items():
+                if key in name:
+                    col = val
+                    break
+            
+            # Apply transparency to concrete and terrain
+            alpha = 1.0
+            if any(k in name for k in ["Deck_Segment", "Pier", "Cap", "Abutment"]):
+                alpha = CONCRETE_OPACITY
+            elif "Terrain" in name:
+                alpha = TERRAIN_OPACITY
+                
+            display.DisplayShape(shape, color=col, transparency=1.0-alpha)
 
         if SHOW_AXES:
             display.DisplayTriedron()
