@@ -39,9 +39,5 @@ This project presents a fully parametric 3D bridge modeler developed as part of 
    python bridge_model.py
    ```
    *Note: On MacOS, the script automatically handles graphics buffer synchronization for the 3D viewer.*
-
-## 📄 Technical Report
-A detailed mathematical and architectural breakdown of the model can be found in `technical_report.md`.
-
 ---
 *Submitted by Sameeksha Sharma for the FOSSEE Summer Fellowship 2026.*
